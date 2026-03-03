@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ireland Trip Planner ☘️</title>
+  <title>Sláinte!</title>
 
   <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -206,6 +206,36 @@
       transition: background .2s;
     }
     .handle-chip:hover { background: rgba(255,255,255,.25); }
+
+    .music-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,.12);
+      border: 1.5px solid rgba(255,255,255,.3);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: .85rem;
+      font-family: 'Lato', sans-serif;
+      color: white;
+      cursor: pointer;
+      transition: background .2s, transform .15s;
+    }
+    .music-btn:hover  { background: rgba(255,255,255,.24); }
+    .music-btn.playing {
+      background: rgba(212,175,55,.25);
+      border-color: var(--gold-light);
+      color: var(--gold-light);
+    }
+
+    /* spinning vinyl dot when playing */
+    .music-btn .vinyl {
+      display: inline-block;
+      font-size: 1rem;
+      animation: none;
+    }
+    .music-btn.playing .vinyl { animation: spin 2s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ============================================================
        MAIN LAYOUT
@@ -611,7 +641,7 @@
   <div class="hdr-left">
     <span class="hdr-flag">🇮🇪</span>
     <div>
-      <div class="hdr-title">☘️ Ireland Trip Planner</div>
+      <div class="hdr-title">☘️ Sláinte!</div>
       <div class="hdr-sub">Share ideas &amp; plan the craic with your friends!</div>
     </div>
   </div>
@@ -620,6 +650,9 @@
       <div class="live-dot" id="liveDot"></div>
       <span id="liveLabel">Connecting…</span>
     </div>
+    <button class="music-btn" id="musicBtn" onclick="toggleMusic()" title="Play traditional Irish folk music">
+      <span class="vinyl">🎵</span> Music
+    </button>
     <div class="handle-chip" onclick="changeHandle()" title="Click to change your handle">
       👤 <span id="headerHandle">…</span>
     </div>
@@ -984,6 +1017,145 @@ document.addEventListener('DOMContentLoaded', () => {
 
   init();
 });
+
+// ── MUSIC PLAYER ──────────────────────────────────────────────────
+// "Whiskey in the Jar" — traditional Irish folk melody (public domain)
+// Synthesised via Web Audio API; no audio file, no copyright issues.
+// ─────────────────────────────────────────────────────────────────
+const FREQ = {
+  'D4':293.66,'E4':329.63,'F4':349.23,'F#4':369.99,'G4':392.00,
+  'A4':440.00,'Bb4':466.16,'B4':493.88,
+  'C5':523.25,'Db5':554.37,'D5':587.33,'E5':659.25,'F5':698.46,
+  'F#5':739.99,'G5':783.99,'A5':880.00,'B5':987.77,
+};
+
+// Traditional melody — G major, 4/4, moderato (♩=108)
+// Arranged as [noteName|null, beatDuration]
+const BPM  = 108;
+const BEAT = 60 / BPM;
+
+const MELODY = [
+  // ── Verse phrase 1 ──────────────────────────────────────────────
+  ['G4',1.0],['G4',0.5],['B4',0.5],['D5',1.0],['D5',0.5],['E5',0.5],
+  ['D5',0.5],['C5',0.5],['B4',0.5],['A4',0.5],['G4',1.5],[null,0.5],
+  // ── Verse phrase 2 ──────────────────────────────────────────────
+  ['G4',1.0],['A4',0.5],['B4',0.5],['D5',1.0],['E5',0.5],['F#5',0.5],
+  ['G5',0.5],['F#5',0.5],['E5',0.5],['D5',0.5],['B4',1.5],[null,0.5],
+  // ── Verse phrase 3 (repeat of 1) ────────────────────────────────
+  ['G4',1.0],['G4',0.5],['B4',0.5],['D5',1.0],['D5',0.5],['E5',0.5],
+  ['D5',0.5],['C5',0.5],['B4',0.5],['A4',0.5],['G4',1.5],[null,0.5],
+  // ── Chorus (Musha ring dum-a-do) ────────────────────────────────
+  ['D5',1.0],['D5',0.5],['B4',0.5],['G4',1.0],['A4',0.5],['B4',0.5],
+  ['C5',0.5],['B4',0.5],['A4',0.5],['G4',0.5],['D4',1.5],[null,0.5],
+  ['G4',1.0],['B4',0.5],['D5',0.5],['G5',1.0],['F#5',0.5],['E5',0.5],
+  ['D5',0.5],['C5',0.5],['B4',0.5],['A4',0.5],['G4',1.5],[null,0.5],
+  // ── Turnaround ──────────────────────────────────────────────────
+  ['A4',1.0],['A4',0.5],['C5',0.5],['E5',1.0],['D5',0.5],['C5',0.5],
+  ['B4',0.5],['A4',0.5],['G4',0.5],['F#4',0.5],['G4',2.0],[null,1.0],
+];
+
+let audioCtx     = null;
+let musicPlaying = false;
+let musicStop    = false;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function scheduleNote(ctx, freq, startTime, durationBeats) {
+  if (!freq) return; // rest — silence
+
+  const totalTime = durationBeats * BEAT;
+  const attack    = 0.018;
+  const release   = Math.min(0.12, totalTime * 0.18);
+  const endTime   = startTime + totalTime;
+
+  // Master gain (envelope)
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0, startTime);
+  env.gain.linearRampToValueAtTime(0.38, startTime + attack);
+  env.gain.setValueAtTime(0.32, endTime - release);
+  env.gain.linearRampToValueAtTime(0, endTime + 0.01);
+  env.connect(ctx.destination);
+
+  // Primary oscillator — triangle for tin-whistle warmth
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, startTime);
+
+  // Subtle vibrato via LFO (kicks in after attack)
+  const lfo     = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.frequency.setValueAtTime(5.8, startTime);
+  lfoGain.gain.setValueAtTime(0, startTime);
+  lfoGain.gain.linearRampToValueAtTime(freq * 0.012, startTime + 0.09);
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+
+  // Warm lowpass filter
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.setValueAtTime(1800, startTime);
+  filt.Q.setValueAtTime(0.9, startTime);
+
+  osc.connect(filt);
+  filt.connect(env);
+
+  osc.start(startTime);
+  osc.stop(endTime + 0.05);
+  lfo.start(startTime);
+  lfo.stop(endTime + 0.05);
+}
+
+async function playMusic() {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') await ctx.resume();
+
+  musicPlaying = true;
+  musicStop    = false;
+  updateMusicBtn();
+
+  const totalBeats   = MELODY.reduce((s, [, d]) => s + d, 0);
+  const loopDuration = totalBeats * BEAT * 1000; // ms
+
+  while (!musicStop) {
+    let t = ctx.currentTime + 0.06;
+    for (const [note, dur] of MELODY) {
+      if (musicStop) break;
+      scheduleNote(ctx, FREQ[note] ?? null, t, dur);
+      t += dur * BEAT;
+    }
+    await new Promise(r => setTimeout(r, loopDuration));
+  }
+
+  musicPlaying = false;
+  updateMusicBtn();
+}
+
+function stopMusic() {
+  musicStop = true;
+}
+
+function toggleMusic() {
+  if (musicPlaying) {
+    stopMusic();
+  } else {
+    playMusic();
+  }
+}
+
+function updateMusicBtn() {
+  const btn = document.getElementById('musicBtn');
+  if (!btn) return;
+  if (musicPlaying) {
+    btn.innerHTML = '<span class="vinyl">💿</span> Playing…';
+    btn.classList.add('playing');
+  } else {
+    btn.innerHTML = '<span class="vinyl">🎵</span> Music';
+    btn.classList.remove('playing');
+  }
+}
 </script>
 
 </body>
