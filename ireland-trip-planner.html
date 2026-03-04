@@ -532,6 +532,32 @@
       align-items: center;
     }
 
+    .vote-bar {
+      display: flex;
+      gap: 6px;
+    }
+
+    .vote-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--g-bg);
+      font-size: .8rem;
+      font-family: 'Lato', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .18s;
+      color: var(--text-mid);
+      line-height: 1;
+    }
+    .vote-btn:hover            { border-color: var(--g-mid); color: var(--g-mid); transform: scale(1.06); }
+    .vote-btn.up.active        { background: #d1fae5; border-color: #10b981; color: #065f46; }
+    .vote-btn.down.active      { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+    .vote-btn .vote-count      { min-width: 14px; text-align: center; }
+
     /* empty state */
     .empty-state {
       grid-column: 1 / -1;
@@ -747,6 +773,7 @@ let supabaseClient = null;
 let currentHandle  = localStorage.getItem('ireland_handle') || '';
 let currentFilter  = 'all';
 let allMessages    = [];
+let allVotes       = {}; // { ideaId: { up: [handles], down: [handles] } }
 let demoMode       = false;
 
 // ── INIT ──────────────────────────────────────────────────────────
@@ -775,11 +802,18 @@ async function init() {
     if (error) throw error;
 
     allMessages = data || [];
+
+    // Load votes
+    const { data: voteData } = await supabaseClient
+      .from('ireland_votes')
+      .select('idea_id, handle, vote_type');
+    ingestVotes(voteData || []);
+
     renderAll();
     setConnectionStatus(true);
     document.getElementById('demoBanner').classList.add('hidden');
 
-    // Real-time subscription
+    // Real-time: new ideas
     supabaseClient
       .channel('ireland_ideas_channel')
       .on(
@@ -791,6 +825,28 @@ async function init() {
           renderBoard();
         }
       )
+      .subscribe();
+
+    // Real-time: votes
+    supabaseClient
+      .channel('ireland_votes_channel')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ireland_votes' }, (payload) => {
+        const v = payload.new;
+        ensureVoteEntry(v.idea_id);
+        const opposite = v.vote_type === 'up' ? 'down' : 'up';
+        allVotes[v.idea_id][opposite] = allVotes[v.idea_id][opposite].filter(h => h !== v.handle);
+        if (!allVotes[v.idea_id][v.vote_type].includes(v.handle))
+          allVotes[v.idea_id][v.vote_type].push(v.handle);
+        refreshCardVotes(v.idea_id);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'ireland_votes' }, (payload) => {
+        const v = payload.old;
+        if (!v || !v.idea_id) { renderBoard(); return; }
+        ensureVoteEntry(v.idea_id);
+        allVotes[v.idea_id].up   = allVotes[v.idea_id].up.filter(h   => h !== v.handle);
+        allVotes[v.idea_id].down = allVotes[v.idea_id].down.filter(h => h !== v.handle);
+        refreshCardVotes(v.idea_id);
+      })
       .subscribe();
 
   } catch (err) {
@@ -806,6 +862,10 @@ function enableDemoMode() {
   const stored = localStorage.getItem('ireland_demo_msgs');
   if (stored) {
     try { allMessages = JSON.parse(stored); } catch { allMessages = []; }
+  }
+  const storedVotes = localStorage.getItem('ireland_demo_votes');
+  if (storedVotes) {
+    try { allVotes = JSON.parse(storedVotes); } catch { allVotes = {}; }
   }
   renderAll();
 }
@@ -900,6 +960,90 @@ function appendChatMessage(msg, doScroll) {
   if (doScroll) scrollChatToBottom();
 }
 
+// ── VOTING ────────────────────────────────────────────────────────
+function ensureVoteEntry(ideaId) {
+  if (!allVotes[ideaId]) allVotes[ideaId] = { up: [], down: [] };
+}
+
+function ingestVotes(rows) {
+  allVotes = {};
+  for (const v of rows) {
+    ensureVoteEntry(v.idea_id);
+    if (!allVotes[v.idea_id][v.vote_type].includes(v.handle))
+      allVotes[v.idea_id][v.vote_type].push(v.handle);
+  }
+}
+
+function getVoteInfo(ideaId) {
+  const entry  = allVotes[ideaId] || { up: [], down: [] };
+  const myVote = entry.up.includes(currentHandle)   ? 'up'
+               : entry.down.includes(currentHandle) ? 'down'
+               : null;
+  return { upCount: entry.up.length, downCount: entry.down.length, myVote };
+}
+
+async function castVote(ideaId, voteType) {
+  if (!currentHandle) { document.getElementById('modalOverlay').classList.remove('hidden'); return; }
+
+  ensureVoteEntry(ideaId);
+  const { myVote } = getVoteInfo(ideaId);
+  const opposite   = voteType === 'up' ? 'down' : 'up';
+
+  if (demoMode) {
+    // Remove from opposite
+    allVotes[ideaId][opposite] = allVotes[ideaId][opposite].filter(h => h !== currentHandle);
+    if (myVote === voteType) {
+      // Toggle off
+      allVotes[ideaId][voteType] = allVotes[ideaId][voteType].filter(h => h !== currentHandle);
+    } else {
+      // Add new vote
+      if (!allVotes[ideaId][voteType].includes(currentHandle))
+        allVotes[ideaId][voteType].push(currentHandle);
+    }
+    localStorage.setItem('ireland_demo_votes', JSON.stringify(allVotes));
+    refreshCardVotes(ideaId);
+    return;
+  }
+
+  // Supabase: remove any existing vote for this handle+idea first
+  await supabaseClient
+    .from('ireland_votes')
+    .delete()
+    .eq('idea_id', ideaId)
+    .eq('handle', currentHandle);
+
+  // If toggling off, we're done — realtime DELETE handler updates the UI
+  if (myVote === voteType) return;
+
+  // Otherwise insert the new vote
+  await supabaseClient
+    .from('ireland_votes')
+    .insert([{ idea_id: ideaId, handle: currentHandle, vote_type: voteType }]);
+  // realtime INSERT handler updates the UI
+}
+
+// Surgically refresh just the vote bar on one card (avoids full re-render flicker)
+function refreshCardVotes(ideaId) {
+  const bar = document.querySelector(`[data-idea-id="${ideaId}"] .vote-bar`);
+  if (!bar) { renderBoard(); return; }
+  bar.outerHTML = buildVoteBar(ideaId);
+}
+
+function buildVoteBar(ideaId) {
+  const { upCount, downCount, myVote } = getVoteInfo(ideaId);
+  return `
+    <div class="vote-bar">
+      <button class="vote-btn up ${myVote === 'up' ? 'active' : ''}"
+              onclick="castVote('${ideaId}', 'up')" title="Thumbs up">
+        👍 <span class="vote-count">${upCount}</span>
+      </button>
+      <button class="vote-btn down ${myVote === 'down' ? 'active' : ''}"
+              onclick="castVote('${ideaId}', 'down')" title="Thumbs down">
+        👎 <span class="vote-count">${downCount}</span>
+      </button>
+    </div>`;
+}
+
 function renderBoard() {
   const board    = document.getElementById('boardContent');
   const filtered = currentFilter === 'all'
@@ -933,6 +1077,7 @@ function renderBoard() {
 
     const card = document.createElement('div');
     card.className = `idea-card ${cat.cardClass}`;
+    card.dataset.ideaId = msg.id;
     card.innerHTML = `
       <div class="card-top">
         <div class="card-handle">☘️ ${esc(msg.handle)}</div>
@@ -941,6 +1086,7 @@ function renderBoard() {
       <div class="card-text">${esc(msg.message)}</div>
       <div class="card-footer">
         <span class="cat-tag ${cat.tagClass}">${cat.label}</span>
+        ${buildVoteBar(msg.id)}
       </div>
     `;
     board.appendChild(card);

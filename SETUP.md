@@ -38,6 +38,24 @@ create policy "Allow public insert" on ireland_ideas for insert with check (true
 
 -- Enable real-time so friends see new ideas instantly
 alter publication supabase_realtime add table ireland_ideas;
+
+-- ── Votes table (thumbs up / down) ──────────────────────────────
+create table ireland_votes (
+  id         uuid        default gen_random_uuid() primary key,
+  idea_id    text        not null,
+  handle     text        not null,
+  vote_type  text        not null check (vote_type in ('up', 'down')),
+  created_at timestamptz default now(),
+  unique(idea_id, handle)   -- one vote per person per idea
+);
+
+alter table ireland_votes enable row level security;
+
+create policy "Allow public read"   on ireland_votes for select using (true);
+create policy "Allow public insert" on ireland_votes for insert with check (true);
+create policy "Allow public delete" on ireland_votes for delete using (true);
+
+alter publication supabase_realtime add table ireland_votes;
 ```
 
 ---
