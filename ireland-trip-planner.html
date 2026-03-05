@@ -628,13 +628,124 @@
     /* ============================================================
        RESPONSIVE
        ============================================================ */
+    /* ============================================================
+       DEVICE BADGE
+       ============================================================ */
+    .device-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .75rem;
+      opacity: .75;
+      padding: 4px 10px;
+      background: rgba(255,255,255,.1);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.2);
+      white-space: nowrap;
+    }
+
+    /* ============================================================
+       MOBILE BOTTOM NAV  (hidden on desktop, shown on mobile)
+       ============================================================ */
+    .mobile-nav { display: none; }
+
+    /* ============================================================
+       RESPONSIVE — MOBILE  (≤ 720 px)
+       ============================================================ */
     @media (max-width: 720px) {
-      .main { flex-direction: column; }
-      .chat-panel { width: 100%; height: 48vh; border-right: none; border-bottom: 2px solid var(--border); }
-      .board-panel { height: 52vh; }
-      .hdr-title { font-size: 1rem; }
-      .hdr-sub { display: none; }
-      .board-hdr { flex-direction: column; align-items: flex-start; }
+
+      /* ── Header ── */
+      header { padding: 10px 14px; }
+      .hdr-title { font-size: .95rem; }
+      .hdr-sub, .live-badge { display: none; }
+      .hdr-flag { font-size: 1.3rem; }
+      .handle-chip { padding: 5px 10px; font-size: .78rem; }
+      .music-btn   { padding: 5px 10px; font-size: .78rem; }
+      .device-badge { display: none; } /* save space on small screens */
+
+      /* ── Main: single-panel switching ── */
+      .main { flex-direction: column; flex: 1; overflow: hidden; }
+
+      .chat-panel {
+        width: 100%;
+        flex: 1;
+        border-right: none;
+        border-bottom: none;
+        display: flex;        /* visible by default */
+      }
+
+      .board-panel {
+        display: none;        /* hidden by default; toggled by JS */
+        flex: 1;
+      }
+
+      /* JS adds .show-board to <body> when board tab is active */
+      body.show-board .chat-panel  { display: none; }
+      body.show-board .board-panel { display: flex; }
+
+      /* ── Board header ── */
+      .board-hdr { flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 12px; }
+      .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+      .tab  { white-space: nowrap; flex-shrink: 0; }
+
+      /* ── Board grid: single column ── */
+      .board-content { padding: 10px; grid-template-columns: 1fr; gap: 10px; }
+
+      /* ── Chat ── */
+      .chat-feed { padding: 10px 10px 4px; gap: 10px; }
+      .bubble { max-width: 88vw; }
+
+      /* ── Input ── */
+      .input-area { padding: 10px 12px; }
+      .msg-input  { font-size: 16px; } /* prevents iOS auto-zoom */
+
+      /* ── Vote buttons: bigger touch targets ── */
+      .vote-btn { padding: 7px 13px; font-size: .83rem; }
+
+      /* ── Mobile bottom nav ── */
+      .mobile-nav {
+        display: flex;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, var(--g-darkest) 0%, var(--g-dark) 100%);
+        border-top: 3px solid var(--gold);
+        padding-bottom: env(safe-area-inset-bottom, 0px); /* notch-safe */
+      }
+
+      .mnav-btn {
+        flex: 1;
+        padding: 10px 6px 12px;
+        border: none;
+        background: transparent;
+        color: rgba(255,255,255,.55);
+        font-family: 'Lato', sans-serif;
+        font-size: .78rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        transition: color .2s, background .2s;
+        letter-spacing: .02em;
+      }
+      .mnav-btn .mnav-icon { font-size: 1.35rem; line-height: 1; }
+      .mnav-btn:active     { background: rgba(255,255,255,.08); }
+      .mnav-btn.active     { color: white; }
+      .mnav-btn.active .mnav-icon {
+        filter: drop-shadow(0 0 5px rgba(255,255,255,.45));
+      }
+      .mnav-separator {
+        width: 1px;
+        background: rgba(255,255,255,.12);
+        align-self: stretch;
+        margin: 8px 0;
+      }
+    }
+
+    /* ── Extra-small phones ── */
+    @media (max-width: 380px) {
+      .hdr-title { font-size: .85rem; }
+      .handle-chip, .music-btn { padding: 4px 8px; font-size: .72rem; }
     }
   </style>
 </head>
@@ -676,6 +787,7 @@
       <div class="live-dot" id="liveDot"></div>
       <span id="liveLabel">Connecting…</span>
     </div>
+    <div class="device-badge" id="deviceBadge">💻 Desktop</div>
     <button class="music-btn" id="musicBtn" onclick="toggleMusic()" title="Play traditional Irish folk music">
       <span class="vinyl">🎵</span> Music
     </button>
@@ -740,6 +852,23 @@
   </div>
 
 </div><!-- /.main -->
+
+<!-- ============================================================
+     MOBILE BOTTOM NAV  (hidden on desktop via CSS)
+     ============================================================ -->
+<nav class="mobile-nav" id="mobileNav" aria-label="Navigation">
+  <button class="mnav-btn active" id="mnav-chat"  onclick="switchMobileTab('chat')">
+    <span class="mnav-icon">💬</span>Chat
+  </button>
+  <div class="mnav-separator"></div>
+  <button class="mnav-btn"        id="mnav-board" onclick="switchMobileTab('board')">
+    <span class="mnav-icon">📌</span>Board
+  </button>
+  <div class="mnav-separator"></div>
+  <button class="mnav-btn"        id="mnav-music" onclick="toggleMusic()">
+    <span class="mnav-icon" id="mnavMusicIcon">🎵</span>Music
+  </button>
+</nav>
 
 <!-- ============================================================
      JAVASCRIPT
@@ -1161,8 +1290,46 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') setHandle();
   });
 
+  setupDevice();
   init();
 });
+
+// ── DEVICE DETECTION & MOBILE NAV ────────────────────────────────
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      || window.innerWidth <= 720;
+}
+
+function setupDevice() {
+  const mobile = isMobile();
+
+  // Update the desktop header badge
+  const badge = document.getElementById('deviceBadge');
+  if (badge) badge.innerHTML = mobile ? '📱 Mobile' : '💻 Desktop';
+
+  // On first load on mobile, default to chat tab
+  if (mobile && !document.body.classList.contains('show-board')) {
+    switchMobileTab('chat', false);
+  }
+}
+
+function switchMobileTab(tab, doScroll = true) {
+  if (tab === 'board') {
+    document.body.classList.add('show-board');
+  } else {
+    document.body.classList.remove('show-board');
+    if (doScroll) setTimeout(scrollChatToBottom, 60);
+  }
+
+  // Sync active state on all nav buttons
+  ['chat', 'board'].forEach(t => {
+    const btn = document.getElementById(`mnav-${t}`);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+}
+
+// Re-evaluate device on orientation change / resize
+window.addEventListener('resize', () => setupDevice());
 
 // ── MUSIC PLAYER ──────────────────────────────────────────────────
 // "Whiskey in the Jar" — traditional Irish folk melody (public domain)
@@ -1292,15 +1459,22 @@ function toggleMusic() {
 }
 
 function updateMusicBtn() {
+  // Desktop header button
   const btn = document.getElementById('musicBtn');
-  if (!btn) return;
-  if (musicPlaying) {
-    btn.innerHTML = '<span class="vinyl">💿</span> Playing…';
-    btn.classList.add('playing');
-  } else {
-    btn.innerHTML = '<span class="vinyl">🎵</span> Music';
-    btn.classList.remove('playing');
+  if (btn) {
+    if (musicPlaying) {
+      btn.innerHTML = '<span class="vinyl">💿</span> Playing…';
+      btn.classList.add('playing');
+    } else {
+      btn.innerHTML = '<span class="vinyl">🎵</span> Music';
+      btn.classList.remove('playing');
+    }
   }
+  // Mobile nav music icon
+  const mIcon = document.getElementById('mnavMusicIcon');
+  if (mIcon) mIcon.textContent = musicPlaying ? '⏸' : '🎵';
+  const mBtn = document.getElementById('mnav-music');
+  if (mBtn) mBtn.classList.toggle('active', musicPlaying);
 }
 </script>
 
