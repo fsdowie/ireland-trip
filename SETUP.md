@@ -56,6 +56,10 @@ create policy "Allow public insert" on ireland_votes for insert with check (true
 create policy "Allow public delete" on ireland_votes for delete using (true);
 
 alter publication supabase_realtime add table ireland_votes;
+
+-- ── Strike-out support ───────────────────────────────────────────
+-- Run this if you already created the ireland_ideas table:
+alter table ireland_ideas add column if not exists struck_out boolean default false;
 ```
 
 ---

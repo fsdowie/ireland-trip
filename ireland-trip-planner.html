@@ -645,6 +645,68 @@
     }
 
     /* ============================================================
+       SUBMIT BAR
+       ============================================================ */
+    .submit-bar {
+      flex-shrink: 0;
+      padding: 12px 20px;
+      border-top: 2px solid var(--border);
+      background: var(--g-pale);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .submit-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .submit-bar .cat-select {
+      width: 200px;
+      flex-shrink: 0;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Lato', sans-serif;
+      font-size: .9rem;
+      background: white;
+      color: var(--text-dark);
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s;
+      align-self: stretch;
+    }
+    .submit-bar .cat-select:focus { border-color: var(--g-mid); }
+
+    /* ============================================================
+       STRIKE BUTTON + STRUCK CARD
+       ============================================================ */
+    .strike-btn {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 3px 8px;
+      font-size: .75rem;
+      cursor: pointer;
+      color: var(--text-mid);
+      font-family: 'Lato', sans-serif;
+      font-weight: 700;
+      transition: all .18s;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+    .strike-btn:hover         { border-color: #ef4444; color: #ef4444; }
+    .strike-btn.active        { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+
+    .idea-card.struck         { opacity: .5; }
+    .idea-card.struck .card-text {
+      text-decoration: line-through;
+      text-decoration-color: #6b7280;
+    }
+
+    /* ============================================================
        MOBILE BOTTOM NAV  (hidden on desktop, shown on mobile)
        ============================================================ */
     .mobile-nav { display: none; }
@@ -661,46 +723,22 @@
       .hdr-flag { font-size: 1.3rem; }
       .handle-chip { padding: 5px 10px; font-size: .78rem; }
       .music-btn   { padding: 5px 10px; font-size: .78rem; }
-      .device-badge { display: none; } /* save space on small screens */
+      .device-badge { display: none; }
 
-      /* ── Main: single-panel switching ── */
-      .main { flex-direction: column; flex: 1; overflow: hidden; }
-
-      .chat-panel {
-        width: 100%;
-        flex: 1;
-        border-right: none;
-        border-bottom: none;
-        display: flex;        /* visible by default */
-      }
-
-      .board-panel {
-        display: none;        /* hidden by default; toggled by JS */
-        flex: 1;
-      }
-
-      /* JS adds .show-board to <body> when board tab is active */
-      body.show-board .chat-panel  { display: none; }
-      body.show-board .board-panel { display: flex; }
-
-      /* ── Board header ── */
+      /* ── Board grid: single column ── */
+      .board-content { padding: 10px; grid-template-columns: 1fr; gap: 10px; }
       .board-hdr { flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 12px; }
       .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
       .tab  { white-space: nowrap; flex-shrink: 0; }
 
-      /* ── Board grid: single column ── */
-      .board-content { padding: 10px; grid-template-columns: 1fr; gap: 10px; }
-
-      /* ── Chat ── */
-      .chat-feed { padding: 10px 10px 4px; gap: 10px; }
-      .bubble { max-width: 88vw; }
-
-      /* ── Input ── */
-      .input-area { padding: 10px 12px; }
+      /* ── Submit bar ── */
+      .submit-bar { padding: 10px 12px; }
+      .submit-bar .cat-select { width: auto; flex: 1; font-size: .85rem; }
       .msg-input  { font-size: 16px; } /* prevents iOS auto-zoom */
 
-      /* ── Vote buttons: bigger touch targets ── */
-      .vote-btn { padding: 7px 13px; font-size: .83rem; }
+      /* ── Vote + strike buttons: bigger touch targets ── */
+      .vote-btn   { padding: 7px 13px; font-size: .83rem; }
+      .strike-btn { padding: 5px 10px; font-size: .8rem; }
 
       /* ── Mobile bottom nav ── */
       .mobile-nav {
@@ -708,7 +746,7 @@
         flex-shrink: 0;
         background: linear-gradient(135deg, var(--g-darkest) 0%, var(--g-dark) 100%);
         border-top: 3px solid var(--gold);
-        padding-bottom: env(safe-area-inset-bottom, 0px); /* notch-safe */
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
 
       .mnav-btn {
@@ -731,9 +769,7 @@
       .mnav-btn .mnav-icon { font-size: 1.35rem; line-height: 1; }
       .mnav-btn:active     { background: rgba(255,255,255,.08); }
       .mnav-btn.active     { color: white; }
-      .mnav-btn.active .mnav-icon {
-        filter: drop-shadow(0 0 5px rgba(255,255,255,.45));
-      }
+      .mnav-btn.active .mnav-icon { filter: drop-shadow(0 0 5px rgba(255,255,255,.45)); }
       .mnav-separator {
         width: 1px;
         background: rgba(255,255,255,.12);
@@ -798,40 +834,10 @@
 </header>
 
 <!-- ============================================================
-     MAIN
+     MAIN  (board only — full width)
      ============================================================ -->
 <div class="main">
 
-  <!-- ── CHAT PANEL ── -->
-  <div class="chat-panel">
-    <div class="panel-hdr">💬 Live Chat Feed</div>
-
-    <div class="chat-feed" id="chatFeed">
-      <!-- populated by JS -->
-    </div>
-
-    <div class="input-area">
-      <select class="cat-select" id="categorySelect">
-        <option value="general">💬 General</option>
-        <option value="activities">🎯 Things To Do</option>
-        <option value="dates">📅 Available Dates</option>
-        <option value="stay">🏠 Places To Stay</option>
-        <option value="food">🍺 Food &amp; Pubs</option>
-      </select>
-      <div class="input-row">
-        <textarea
-          class="msg-input"
-          id="messageInput"
-          placeholder="Share an idea, date, place…"
-          rows="1"
-        ></textarea>
-        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send (Enter)">☘️</button>
-      </div>
-      <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
-    </div>
-  </div>
-
-  <!-- ── BOARD PANEL ── -->
   <div class="board-panel">
     <div class="board-hdr">
       <div class="board-title">📌 Idea Board</div>
@@ -854,18 +860,37 @@
 </div><!-- /.main -->
 
 <!-- ============================================================
+     SUBMIT BAR  (sticky input at the bottom)
+     ============================================================ -->
+<div class="submit-bar">
+  <div class="submit-row">
+    <select class="cat-select" id="categorySelect">
+      <option value="general">💬 General</option>
+      <option value="activities">🎯 Things To Do</option>
+      <option value="dates">📅 Available Dates</option>
+      <option value="stay">🏠 Places To Stay</option>
+      <option value="food">🍺 Food &amp; Pubs</option>
+    </select>
+    <textarea
+      class="msg-input"
+      id="messageInput"
+      placeholder="Share an idea, date, place…"
+      rows="1"
+    ></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send (Enter)">☘️</button>
+  </div>
+  <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+</div>
+
+<!-- ============================================================
      MOBILE BOTTOM NAV  (hidden on desktop via CSS)
      ============================================================ -->
 <nav class="mobile-nav" id="mobileNav" aria-label="Navigation">
-  <button class="mnav-btn active" id="mnav-chat"  onclick="switchMobileTab('chat')">
-    <span class="mnav-icon">💬</span>Chat
-  </button>
-  <div class="mnav-separator"></div>
-  <button class="mnav-btn"        id="mnav-board" onclick="switchMobileTab('board')">
+  <button class="mnav-btn active" id="mnav-board" onclick="filterBoard('all')">
     <span class="mnav-icon">📌</span>Board
   </button>
   <div class="mnav-separator"></div>
-  <button class="mnav-btn"        id="mnav-music" onclick="toggleMusic()">
+  <button class="mnav-btn" id="mnav-music" onclick="toggleMusic()">
     <span class="mnav-icon" id="mnavMusicIcon">🎵</span>Music
   </button>
 </nav>
@@ -903,6 +928,7 @@ let currentHandle  = localStorage.getItem('ireland_handle') || '';
 let currentFilter  = 'all';
 let allMessages    = [];
 let allVotes       = {}; // { ideaId: { up: [handles], down: [handles] } }
+let allStrikes     = new Set(); // set of struck ideaIds (demo mode only)
 let demoMode       = false;
 
 // ── INIT ──────────────────────────────────────────────────────────
@@ -942,18 +968,31 @@ async function init() {
     setConnectionStatus(true);
     document.getElementById('demoBanner').classList.add('hidden');
 
-    // Real-time: new ideas
+    // Real-time: new ideas + struck_out updates
     supabaseClient
       .channel('ireland_ideas_channel')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'ireland_ideas' },
-        (payload) => {
-          allMessages.push(payload.new);
-          appendChatMessage(payload.new, true);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ireland_ideas' }, (payload) => {
+        allMessages.push(payload.new);
+        renderBoard();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ireland_ideas' }, (payload) => {
+        const idx = allMessages.findIndex(m => String(m.id) === String(payload.new.id));
+        if (idx !== -1) allMessages[idx] = payload.new;
+        else allMessages.push(payload.new);
+        // Surgically update just this card
+        const card = document.querySelector(`[data-idea-id="${payload.new.id}"]`);
+        if (card) {
+          card.classList.toggle('struck', !!payload.new.struck_out);
+          const sb = card.querySelector('.strike-btn');
+          if (sb) {
+            sb.classList.toggle('active', !!payload.new.struck_out);
+            sb.title = payload.new.struck_out ? 'Restore idea' : 'Strike out';
+            sb.innerHTML = payload.new.struck_out ? '↩ restore' : '<s>S</s> strike';
+          }
+        } else {
           renderBoard();
         }
-      )
+      })
       .subscribe();
 
     // Real-time: votes
@@ -995,6 +1034,10 @@ function enableDemoMode() {
   const storedVotes = localStorage.getItem('ireland_demo_votes');
   if (storedVotes) {
     try { allVotes = JSON.parse(storedVotes); } catch { allVotes = {}; }
+  }
+  const storedStrikes = localStorage.getItem('ireland_demo_strikes');
+  if (storedStrikes) {
+    try { allStrikes = new Set(JSON.parse(storedStrikes)); } catch { allStrikes = new Set(); }
   }
   renderAll();
 }
@@ -1047,7 +1090,6 @@ async function sendMessage() {
     // Demo: add locally
     msg.id = Date.now().toString();
     allMessages.push(msg);
-    appendChatMessage(msg, true);
     renderBoard();
     const stored = JSON.parse(localStorage.getItem('ireland_demo_msgs') || '[]');
     stored.push(msg);
@@ -1062,31 +1104,35 @@ async function sendMessage() {
 
 // ── RENDER ────────────────────────────────────────────────────────
 function renderAll() {
-  document.getElementById('chatFeed').innerHTML = '';
-  allMessages.forEach(m => appendChatMessage(m, false));
-  scrollChatToBottom();
   renderBoard();
 }
 
-function appendChatMessage(msg, doScroll) {
-  const feed  = document.getElementById('chatFeed');
-  const isOwn = msg.handle === currentHandle;
-  const cat   = CATS[msg.category] || CATS.general;
-  const time  = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// ── STRIKE-OUT ────────────────────────────────────────────────────
+function isStruck(msg) {
+  if (demoMode) return allStrikes.has(String(msg.id));
+  return !!msg.struck_out;
+}
 
-  const div = document.createElement('div');
-  div.className = `chat-msg ${isOwn ? 'own' : 'other'}`;
-  div.innerHTML = `
-    <div class="msg-meta">
-      ${!isOwn ? `<span class="msg-handle">${esc(msg.handle)}</span>` : ''}
-      <span class="cat-tag ${cat.tagClass}">${cat.label}</span>
-      ${isOwn ? `<span class="msg-handle">You</span>` : ''}
-    </div>
-    <div class="bubble">${esc(msg.message)}</div>
-    <div class="msg-time">${time}</div>
-  `;
-  feed.appendChild(div);
-  if (doScroll) scrollChatToBottom();
+async function toggleStrike(ideaId) {
+  if (!currentHandle) { document.getElementById('modalOverlay').classList.remove('hidden'); return; }
+
+  if (demoMode) {
+    const key = String(ideaId);
+    if (allStrikes.has(key)) allStrikes.delete(key);
+    else allStrikes.add(key);
+    localStorage.setItem('ireland_demo_strikes', JSON.stringify([...allStrikes]));
+    renderBoard();
+    return;
+  }
+
+  // Supabase: find current state, flip it
+  const msg = allMessages.find(m => String(m.id) === String(ideaId));
+  const newState = !(msg?.struck_out);
+  await supabaseClient
+    .from('ireland_ideas')
+    .update({ struck_out: newState })
+    .eq('id', ideaId);
+  // realtime UPDATE handler refreshes the card
 }
 
 // ── VOTING ────────────────────────────────────────────────────────
@@ -1204,13 +1250,21 @@ function renderBoard() {
       hour: '2-digit', minute: '2-digit',
     });
 
+    const struck = isStruck(msg);
     const card = document.createElement('div');
-    card.className = `idea-card ${cat.cardClass}`;
+    card.className = `idea-card ${cat.cardClass}${struck ? ' struck' : ''}`;
     card.dataset.ideaId = msg.id;
     card.innerHTML = `
       <div class="card-top">
         <div class="card-handle">☘️ ${esc(msg.handle)}</div>
-        <div class="card-time">${timeStr}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="card-time">${timeStr}</div>
+          <button class="strike-btn ${struck ? 'active' : ''}"
+                  onclick="toggleStrike('${msg.id}')"
+                  title="${struck ? 'Restore idea' : 'Strike out'}">
+            ${struck ? '↩ restore' : '<s>S</s> strike'}
+          </button>
+        </div>
       </div>
       <div class="card-text">${esc(msg.message)}</div>
       <div class="card-footer">
@@ -1230,11 +1284,6 @@ function filterBoard(cat) {
 }
 
 // ── UI HELPERS ────────────────────────────────────────────────────
-function scrollChatToBottom() {
-  const f = document.getElementById('chatFeed');
-  f.scrollTop = f.scrollHeight;
-}
-
 function setConnectionStatus(online) {
   const dot   = document.getElementById('liveDot');
   const label = document.getElementById('liveLabel');
@@ -1313,19 +1362,8 @@ function setupDevice() {
   }
 }
 
-function switchMobileTab(tab, doScroll = true) {
-  if (tab === 'board') {
-    document.body.classList.add('show-board');
-  } else {
-    document.body.classList.remove('show-board');
-    if (doScroll) setTimeout(scrollChatToBottom, 60);
-  }
-
-  // Sync active state on all nav buttons
-  ['chat', 'board'].forEach(t => {
-    const btn = document.getElementById(`mnav-${t}`);
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
+function switchMobileTab(tab) {
+  // No-op: single-panel board layout, kept for compatibility
 }
 
 // Re-evaluate device on orientation change / resize
